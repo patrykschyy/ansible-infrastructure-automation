@@ -1,0 +1,16 @@
+---
+- name: Set Zsh as default shell
+  hosts: linux
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Get zsh path
+      ansible.builtin.command: which zsh
+      register: zsh_path
+      changed_when: false
+
+    - name: Set zsh as default shell for user
+      ansible.builtin.user:
+        name: "{{ zsh_user }}"
+        shell: "{{ zsh_path.stdout }}"

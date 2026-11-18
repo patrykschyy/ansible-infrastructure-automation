@@ -1,0 +1,8 @@
+---
+- name: Prepare KVM/QEMU host
+  hosts: kvm_hosts
+  become: true
+
+  roles:
+    - kvm_host
+    - kvm_storage

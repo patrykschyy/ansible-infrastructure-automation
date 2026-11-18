@@ -1,0 +1,49 @@
+---
+- name: Configure Docker log rotation
+  hosts: linux
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ensure Docker config directory exists
+      ansible.builtin.file:
+        path: /etc/docker
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Check for an existing Docker daemon configuration
+      ansible.builtin.stat:
+        path: /etc/docker/daemon.json
+      register: docker_daemon_stat
+
+    - name: Read the existing Docker daemon configuration
+      ansible.builtin.slurp:
+        src: /etc/docker/daemon.json
+      register: docker_daemon_existing
+      when: docker_daemon_stat.stat.exists
+
+    - name: Update Docker log rotation without dropping other settings
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: "0644"
+        content: >-
+          {{
+            ((docker_daemon_existing.content | b64decode | from_json)
+             if docker_daemon_stat.stat.exists else {})
+            | combine({
+                'log-driver': 'json-file',
+                'log-opts': {'max-size': '10m', 'max-file': '3'}
+              }, recursive=true)
+            | to_nice_json
+          }}
+      notify: Restart Docker
+
+  handlers:
+    - name: Restart Docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted

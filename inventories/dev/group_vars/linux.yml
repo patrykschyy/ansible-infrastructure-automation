@@ -1,0 +1,63 @@
+---
+# Portfolio example: replace sample values before running.
+common_packages:
+  - curl
+  - wget
+  - vim
+  - htop
+  - git
+  - net-tools
+  - unzip
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - apt-transport-https
+
+server_timezone: Europe/Berlin
+
+docker_users:
+  - "{{ ansible_user }}"
+
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+tailscale_package: tailscale
+
+n8n_project_dir: /home/admin/n8n
+n8n_owner: admin
+n8n_group: admin
+n8n_tailscale_ip: "100.64.0.10"
+n8n_port: "5678"
+n8n_domain: "n8n.example.com"
+n8n_www_domain: "www.n8n.example.com"
+n8n_timezone: "Europe/Berlin"
+
+nginx_sites_available_dir: /etc/nginx/sites-available
+nginx_sites_enabled_dir: /etc/nginx/sites-enabled
+nginx_n8n_config_name: n8n.example.com
+nginx_ssl_cert: /etc/letsencrypt/live/n8n.example.com/fullchain.pem
+nginx_ssl_key: /etc/letsencrypt/live/n8n.example.com/privkey.pem
+
+# Dotfiles / shell
+dotfiles_user: admin
+dotfiles_home: /home/admin
+
+zsh_user: admin
+zsh_home: /home/admin
+zsh_plugins_dir: /home/admin/.oh-my-zsh/custom/plugins
+
+# UFW / firewall
+ufw_allow_public_ports:
+  - "80"
+  - "443"
+
+ufw_deny_public_ports:
+  - "5678"
+  - "8000"
+
+ufw_allow_ssh_public: true
+ufw_ssh_port: "22"

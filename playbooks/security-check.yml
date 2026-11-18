@@ -1,0 +1,134 @@
+---
+- name: Basic security and health check
+  hosts: linux
+  become: true
+  gather_facts: true
+
+  vars:
+    critical_services:
+      - ssh
+      - nginx
+      - docker
+      - tailscaled
+      - ufw
+
+  tasks:
+    - name: Show system information
+      ansible.builtin.debug:
+        msg:
+          - "Hostname: {{ ansible_hostname }}"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Kernel: {{ ansible_kernel }}"
+          - "Default IPv4: {{ ansible_default_ipv4.address | default('not detected') }}"
+
+    # Read-only check: the systemd module changes state and cannot list failed units.
+    - name: Show failed systemd units  # noqa: command-instead-of-module
+      ansible.builtin.command: systemctl --failed --no-pager
+      register: failed_units
+      changed_when: false
+      failed_when: false
+
+    - name: Print failed systemd units
+      ansible.builtin.debug:
+        var: failed_units.stdout_lines
+
+    - name: Gather installed service states
+      ansible.builtin.service_facts:
+
+    - name: Print critical service active state
+      ansible.builtin.debug:
+        msg: "{{ item }}: {{ ansible_facts.services.get(item ~ '.service', {}).get('state', 'not found') }}"
+      loop: "{{ critical_services }}"
+
+    - name: Print critical service enabled state
+      ansible.builtin.debug:
+        msg: "{{ item }}: {{ ansible_facts.services.get(item ~ '.service', {}).get('status', 'not found') }}"
+      loop: "{{ critical_services }}"
+
+    - name: Show enabled but inactive services
+      ansible.builtin.debug:
+        msg: >-
+          {{ ansible_facts.services | dict2items
+             | selectattr('value.status', 'defined')
+             | selectattr('value.status', 'equalto', 'enabled')
+             | rejectattr('value.state', 'equalto', 'running')
+             | map(attribute='key') | list }}
+
+    - name: Show active listening TCP/UDP ports
+      ansible.builtin.command: ss -tulpen
+      register: listening_ports
+      changed_when: false
+      failed_when: false
+
+    - name: Print listening ports
+      ansible.builtin.debug:
+        var: listening_ports.stdout_lines
+
+    - name: Show UFW status
+      ansible.builtin.command: ufw status verbose
+      register: ufw_status
+      changed_when: false
+      failed_when: false
+
+    - name: Print UFW status
+      ansible.builtin.debug:
+        var: ufw_status.stdout_lines
+
+    - name: Show Docker published ports
+      ansible.builtin.command: docker ps --format 'table {{ "{{" }}.Names{{ "}}" }}\t{{ "{{" }}.Status{{ "}}" }}\t{{ "{{" }}.Ports{{ "}}" }}'
+      register: docker_ports
+      changed_when: false
+      failed_when: false
+
+    - name: Print Docker published ports
+      ansible.builtin.debug:
+        var: docker_ports.stdout_lines
+
+    - name: Check n8n port binding
+      ansible.builtin.command: ss -tulpen
+      register: n8n_bind
+      changed_when: false
+      failed_when: false
+
+    - name: Print n8n bind
+      ansible.builtin.debug:
+        msg: "{{ n8n_bind.stdout_lines | select('search', ':5678') | list }}"
+
+    - name: Check disk usage
+      ansible.builtin.command: df -h --output=source,size,used,avail,pcent,target
+      register: disk_usage
+      changed_when: false
+      failed_when: false
+
+    - name: Print disk usage
+      ansible.builtin.debug:
+        var: disk_usage.stdout_lines
+
+    - name: Check memory usage
+      ansible.builtin.command: free -h
+      register: memory_usage
+      changed_when: false
+      failed_when: false
+
+    - name: Print memory usage
+      ansible.builtin.debug:
+        var: memory_usage.stdout_lines
+
+    - name: Check recent SSH login attempts
+      ansible.builtin.command:
+        argv:
+          - journalctl
+          - -u
+          - ssh
+          - --since
+          - "24 hours ago"
+          - --no-pager
+          - -n
+          - "50"
+      register: ssh_recent_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Print recent SSH logs
+      ansible.builtin.debug:
+        var: ssh_recent_logs.stdout_lines

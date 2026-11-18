@@ -1,0 +1,14 @@
+---
+- name: Set MOTD
+  hosts: linux
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Copy MOTD file
+      ansible.builtin.copy:
+        src: "{{ playbook_dir | dirname }}/files/motd"
+        dest: /etc/motd
+        owner: root
+        group: root
+        mode: "0644"

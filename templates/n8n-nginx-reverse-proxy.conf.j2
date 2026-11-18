@@ -1,0 +1,89 @@
+server {
+    listen 80;
+    server_name {{ n8n_domain }} {{ n8n_www_domain }};
+
+    return 301 https://{{ n8n_domain }}$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name {{ n8n_www_domain }};
+
+    ssl_certificate     {{ nginx_ssl_cert }};
+    ssl_certificate_key {{ nginx_ssl_key }};
+
+    return 301 https://{{ n8n_domain }}$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name {{ n8n_domain }};
+
+    ssl_certificate     {{ nginx_ssl_cert }};
+    ssl_certificate_key {{ nginx_ssl_key }};
+
+    client_max_body_size 20M;
+
+    # n8n production webhooks
+    location /webhook/ {
+        proxy_pass http://{{ n8n_tailscale_ip }}:{{ n8n_port }};
+
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    # n8n test webhooks - disable this location in production if not needed
+    location /webhook-test/ {
+        proxy_pass http://{{ n8n_tailscale_ip }}:{{ n8n_port }};
+
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    # Google OAuth callback for n8n credentials
+    location = /rest/oauth2-credential/callback {
+        proxy_pass http://{{ n8n_tailscale_ip }}:{{ n8n_port }};
+
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    # Public healthcheck only - n8n editor is not exposed
+    location / {
+        default_type text/plain;
+        return 200 "{{ n8n_domain }} is available\n";
+    }
+}

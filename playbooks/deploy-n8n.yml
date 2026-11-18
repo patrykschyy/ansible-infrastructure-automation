@@ -1,0 +1,98 @@
+---
+- name: Deploy n8n using Docker Compose
+  hosts: linux
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Ensure n8n project directory exists
+      ansible.builtin.file:
+        path: "{{ n8n_project_dir }}"
+        state: directory
+        owner: "{{ n8n_owner }}"
+        group: "{{ n8n_group }}"
+        mode: "0755"
+
+    - name: Ensure n8n data storage directory exists
+      ansible.builtin.file:
+        path: "{{ n8n_project_dir }}/data/storage"
+        state: directory
+        owner: "{{ n8n_owner }}"
+        group: "{{ n8n_group }}"
+        mode: "0755"
+
+    - name: Ensure n8n internal directory exists
+      ansible.builtin.file:
+        path: "{{ n8n_project_dir }}/.n8n"
+        state: directory
+        owner: "{{ n8n_owner }}"
+        group: "{{ n8n_group }}"
+        mode: "0755"
+
+    - name: Deploy docker-compose.yml
+      ansible.builtin.template:
+        src: "{{ playbook_dir | dirname }}/templates/n8n-docker-compose.yml.j2"
+        dest: "{{ n8n_project_dir }}/docker-compose.yml"
+        owner: "{{ n8n_owner }}"
+        group: "{{ n8n_group }}"
+        mode: "0644"
+        backup: true
+
+    - name: Check for an existing n8n environment file
+      ansible.builtin.stat:
+        path: "{{ n8n_project_dir }}/.env"
+      register: n8n_env_file
+
+    - name: Require an operator-managed n8n environment file
+      ansible.builtin.assert:
+        that:
+          - n8n_env_file.stat.exists
+          - n8n_env_file.stat.isreg | default(false)
+        fail_msg: >-
+          A real .env must already exist on the target host.
+          Copy templates/n8n.env.j2 to the target .env, replace all
+          placeholders and restrict file permissions before deploying.
+
+    - name: Refuse placeholder secrets or an unpinned n8n image version
+      ansible.builtin.shell: |
+        set -euo pipefail
+        env_file="{{ n8n_project_dir }}/.env"
+        grep -Eq '^N8N_ENCRYPTION_KEY=.{32,}$' "$env_file"
+        ! grep -Eq '^N8N_ENCRYPTION_KEY=(REPLACE_|long_random_secret|YOUR_)' "$env_file"
+        grep -Eq '^N8N_VERSION=[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$' "$env_file"
+      args:
+        executable: /bin/bash
+      register: n8n_env_validation
+      changed_when: false
+      no_log: true
+
+    - name: Start or update n8n with Docker Compose
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: "{{ n8n_project_dir }}"
+      become: true
+      become_user: "{{ n8n_owner }}"
+      register: n8n_compose_up
+      changed_when: >
+        'Started' in n8n_compose_up.stdout or
+        'Created' in n8n_compose_up.stdout or
+        'Recreated' in n8n_compose_up.stdout or
+        'Pulling' in n8n_compose_up.stderr or
+        'Downloaded newer image' in n8n_compose_up.stderr
+
+    - name: Show Docker Compose output
+      ansible.builtin.debug:
+        var: n8n_compose_up.stdout_lines
+
+    - name: Show n8n container status
+      ansible.builtin.command:
+        cmd: docker compose ps
+        chdir: "{{ n8n_project_dir }}"
+      become: true
+      become_user: "{{ n8n_owner }}"
+      register: n8n_compose_ps
+      changed_when: false
+
+    - name: Print n8n container status
+      ansible.builtin.debug:
+        var: n8n_compose_ps.stdout_lines

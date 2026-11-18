@@ -1,0 +1,21 @@
+---
+- name: Show server information
+  hosts: linux
+  gather_facts: true
+
+  tasks:
+    - name: Show hostname
+      ansible.builtin.debug:
+        msg: "Hostname: {{ ansible_hostname }}"
+
+    - name: Show OS
+      ansible.builtin.debug:
+        msg: "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+
+    - name: Show default IPv4 address
+      ansible.builtin.debug:
+        msg: "IPv4: {{ ansible_default_ipv4.address | default('not detected') }}"
+
+    - name: Show memory
+      ansible.builtin.debug:
+        msg: "Memory MB: {{ ansible_memtotal_mb }}"

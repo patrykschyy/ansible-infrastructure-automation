@@ -1,0 +1,55 @@
+---
+- name: Deploy Nginx reverse proxy for n8n
+  hosts: linux
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ensure Nginx is installed
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: true
+
+    - name: Check if SSL certificate exists
+      ansible.builtin.stat:
+        path: "{{ nginx_ssl_cert }}"
+      register: nginx_ssl_cert_file
+
+    - name: Fail if SSL certificate does not exist
+      ansible.builtin.fail:
+        msg: "SSL certificate not found: {{ nginx_ssl_cert }}. Install or renew Let's Encrypt certificate first."
+      when: not nginx_ssl_cert_file.stat.exists
+
+    - name: Deploy Nginx reverse proxy config
+      ansible.builtin.template:
+        src: "{{ playbook_dir | dirname }}/templates/n8n-nginx-reverse-proxy.conf.j2"
+        dest: "{{ nginx_sites_available_dir }}/{{ nginx_n8n_config_name }}"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: Reload Nginx
+
+    - name: Enable Nginx site
+      ansible.builtin.file:
+        src: "{{ nginx_sites_available_dir }}/{{ nginx_n8n_config_name }}"
+        dest: "{{ nginx_sites_enabled_dir }}/{{ nginx_n8n_config_name }}"
+        state: link
+        force: true
+      notify: Reload Nginx
+
+    - name: Test Nginx configuration
+      ansible.builtin.command: nginx -t
+      register: nginx_test
+      changed_when: false
+
+    - name: Show Nginx test result
+      ansible.builtin.debug:
+        var: nginx_test.stderr_lines
+
+  handlers:
+    - name: Reload Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded

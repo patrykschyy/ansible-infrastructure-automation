@@ -1,0 +1,10 @@
+---
+- name: Set timezone
+  hosts: linux
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Set server timezone
+      community.general.timezone:
+        name: "{{ server_timezone }}"

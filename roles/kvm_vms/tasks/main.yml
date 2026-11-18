@@ -1,0 +1,74 @@
+---
+- name: Create VM disks from base image
+  ansible.builtin.command: >
+    qemu-img create
+    -f qcow2
+    -F qcow2
+    -b {{ kvm_storage_pool_path }}/{{ kvm_base_image_name }}
+    {{ kvm_storage_pool_path }}/{{ item.name }}.qcow2
+    {{ item.disk_gb }}G
+  args:
+    creates: "{{ kvm_storage_pool_path }}/{{ item.name }}.qcow2"
+  loop: "{{ kvm_vms }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Render cloud-init user-data
+  ansible.builtin.template:
+    src: user-data.j2
+    dest: "/tmp/{{ item.name }}-user-data"
+    mode: "0644"
+  loop: "{{ kvm_vms }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Render cloud-init meta-data
+  ansible.builtin.template:
+    src: meta-data.j2
+    dest: "/tmp/{{ item.name }}-meta-data"
+    mode: "0644"
+  loop: "{{ kvm_vms }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create cloud-init seed ISO
+  ansible.builtin.command: >
+    cloud-localds
+    {{ kvm_storage_pool_path }}/{{ item.name }}-seed.iso
+    /tmp/{{ item.name }}-user-data
+    /tmp/{{ item.name }}-meta-data
+  args:
+    creates: "{{ kvm_storage_pool_path }}/{{ item.name }}-seed.iso"
+  loop: "{{ kvm_vms }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create and start VMs
+  ansible.builtin.command: >
+    virt-install
+    --name {{ item.name }}
+    --memory {{ item.memory_mb }}
+    --vcpus {{ item.vcpu }}
+    --disk path={{ kvm_storage_pool_path }}/{{ item.name }}.qcow2,format=qcow2,bus=virtio
+    --disk path={{ kvm_storage_pool_path }}/{{ item.name }}-seed.iso,device=cdrom
+    --os-variant ubuntu22.04
+    --virt-type kvm
+    --graphics none
+    --console pty,target_type=serial
+    --network network=default,model=virtio
+    --import
+    --noautoconsole
+  args:
+    creates: "/etc/libvirt/qemu/{{ item.name }}.xml"
+  loop: "{{ kvm_vms }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Ensure VMs are running
+  ansible.builtin.command: virsh start {{ item.name }}
+  register: kvm_vms_start
+  changed_when: "'started' in kvm_vms_start.stdout"
+  failed_when: false
+  loop: "{{ kvm_vms }}"
+  loop_control:
+    label: "{{ item.name }}"

@@ -1,0 +1,39 @@
+---
+- name: Create KVM storage directory
+  ansible.builtin.file:
+    path: "{{ kvm_storage_pool_path }}"
+    state: directory
+    owner: libvirt-qemu
+    group: kvm
+    mode: "0775"
+
+- name: Check if storage pool exists
+  ansible.builtin.command: virsh pool-info {{ kvm_storage_pool_name }}
+  register: kvm_storage_pool_check
+  changed_when: false
+  failed_when: false
+
+- name: Define storage pool
+  ansible.builtin.command: >
+    virsh pool-define-as
+    {{ kvm_storage_pool_name }}
+    dir
+    --target {{ kvm_storage_pool_path }}
+  when: kvm_storage_pool_check.rc != 0
+  changed_when: true
+
+- name: Start storage pool
+  ansible.builtin.command: virsh pool-start {{ kvm_storage_pool_name }}
+  register: kvm_storage_pool_start
+  changed_when: "'started' in kvm_storage_pool_start.stdout"
+  failed_when: false
+
+- name: Enable storage pool autostart
+  ansible.builtin.command: virsh pool-autostart {{ kvm_storage_pool_name }}
+  changed_when: false
+
+- name: Download Ubuntu cloud image
+  ansible.builtin.get_url:
+    url: "{{ kvm_base_image_url }}"
+    dest: "{{ kvm_storage_pool_path }}/{{ kvm_base_image_name }}"
+    mode: "0644"

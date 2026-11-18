@@ -1,0 +1,42 @@
+# Local Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+
+# Ansible artifacts
+.ansible/
+*.retry
+*.log
+
+# Local credentials and state
+.env
+.env.*
+*.env
+vault-pass
+.vault-pass
+.vault_pass
+*.pem
+*.key
+*.p12
+*.pfx
+.ssh/
+*.vault
+
+# Editor / system files
+.idea/
+.vscode/
+.DS_Store
+
+!.env.example
+id_ed25519
+id_rsa
+**/.venv/
+*.tfstate
+*.tfstate.*
+*.secret
+*.secrets
+**/host_vars/*/vault.yml
+**/group_vars/*/vault.yml
+*:Zone.Identifier

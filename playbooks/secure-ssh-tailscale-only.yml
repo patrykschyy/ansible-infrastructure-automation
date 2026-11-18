@@ -1,0 +1,126 @@
+---
+- name: Secure UFW and restrict SSH to Tailscale only
+  hosts: linux
+  become: true
+  gather_facts: false
+
+  vars:
+    tailscale_interface: tailscale0
+    ssh_port: "22"
+
+  pre_tasks:
+    - name: Require explicit approval before restricting SSH access
+      ansible.builtin.assert:
+        that:
+          - confirm_tailscale_ssh_restriction | default(false) | bool
+        fail_msg: >-
+          This playbook can disconnect remote SSH sessions. Confirm a working
+          Tailscale SSH route and out-of-band console access, then explicitly
+          pass -e confirm_tailscale_ssh_restriction=true.
+
+  tasks:
+    - name: Ensure UFW is installed
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+        update_cache: true
+
+    - name: Check if Tailscale interface exists
+      ansible.builtin.command: ip link show {{ tailscale_interface }}
+      register: tailscale_interface_check
+      changed_when: false
+      failed_when: false
+
+    - name: Stop if Tailscale interface does not exist
+      ansible.builtin.fail:
+        msg: "Tailscale interface {{ tailscale_interface }} not found. Aborting to avoid locking out SSH access."
+      when: tailscale_interface_check.rc != 0
+
+    - name: Allow SSH through Tailscale interface only
+      community.general.ufw:
+        rule: allow
+        direction: in
+        interface: "{{ tailscale_interface }}"
+        port: "{{ ssh_port }}"
+        proto: tcp
+        comment: "Allow SSH via Tailscale only"
+
+    - name: Allow public HTTP
+      community.general.ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+        comment: "Allow public HTTP"
+
+    - name: Allow public HTTPS
+      community.general.ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+        comment: "Allow public HTTPS"
+
+    - name: Deny public SSH
+      community.general.ufw:
+        rule: deny
+        port: "22"
+        proto: tcp
+        comment: "Deny public SSH"
+
+    - name: Deny public n8n port
+      community.general.ufw:
+        rule: deny
+        port: "5678"
+        proto: tcp
+        comment: "Deny public n8n port"
+
+    - name: Deny public port 8000
+      community.general.ufw:
+        rule: deny
+        port: "8000"
+        proto: tcp
+        comment: "Deny public port 8000"
+
+    - name: Set default incoming policy to deny
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+
+    - name: Set default outgoing policy to allow
+      community.general.ufw:
+        direction: outgoing
+        policy: allow
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    - name: Remove public SSH allow rule (TCP)
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+        delete: true
+
+    - name: Remove public SSH allow rule (protocol unspecified)
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        delete: true
+
+    - name: Show UFW status numbered
+      ansible.builtin.command: ufw status numbered
+      register: ufw_status_numbered
+      changed_when: false
+
+    - name: Print UFW status numbered
+      ansible.builtin.debug:
+        var: ufw_status_numbered.stdout_lines
+
+    - name: Show UFW status verbose
+      ansible.builtin.command: ufw status verbose
+      register: ufw_status_verbose
+      changed_when: false
+
+    - name: Print UFW status verbose
+      ansible.builtin.debug:
+        var: ufw_status_verbose.stdout_lines

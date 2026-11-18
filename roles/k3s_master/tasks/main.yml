@@ -1,0 +1,38 @@
+---
+- name: Download K3s install script
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /usr/local/src/install-k3s.sh
+    mode: "0644"
+
+- name: Install K3s server
+  ansible.builtin.command: /bin/sh /usr/local/src/install-k3s.sh
+  environment:
+    INSTALL_K3S_EXEC: "server --disable traefik --disable servicelb --write-kubeconfig-mode 600"
+  args:
+    creates: /usr/local/bin/k3s
+
+- name: Wait for K3s node token
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+    timeout: 120
+
+- name: Read K3s node token
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: k3s_master_node_token
+  no_log: true
+
+- name: Save K3s token as fact
+  ansible.builtin.set_fact:
+    k3s_master_token: "{{ k3s_master_node_token.content | b64decode | trim }}"
+  no_log: true
+
+- name: Show K3s node status
+  ansible.builtin.command: k3s kubectl get nodes -o wide
+  register: k3s_master_nodes
+  changed_when: false
+
+- name: Print K3s nodes
+  ansible.builtin.debug:
+    var: k3s_master_nodes.stdout_lines

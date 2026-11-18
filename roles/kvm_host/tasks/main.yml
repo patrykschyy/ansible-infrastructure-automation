@@ -1,0 +1,43 @@
+---
+- name: Install KVM/QEMU/libvirt packages
+  ansible.builtin.apt:
+    name:
+      - qemu-kvm
+      - libvirt-daemon-system
+      - libvirt-clients
+      - virtinst
+      - bridge-utils
+      - cloud-image-utils
+      - genisoimage
+      - ovmf
+      - cpu-checker
+      - python3-libvirt
+      - python3-lxml
+      - wget
+      - curl
+    state: present
+    update_cache: true
+
+- name: Ensure libvirtd service is enabled and running
+  ansible.builtin.systemd:
+    name: libvirtd
+    enabled: true
+    state: started
+
+- name: Add Ansible user to libvirt and kvm groups
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups:
+      - libvirt
+      - kvm
+    append: true
+
+- name: Check KVM acceleration
+  ansible.builtin.command: kvm-ok
+  register: kvm_host_ok_result
+  changed_when: false
+  failed_when: false
+
+- name: Show KVM acceleration result
+  ansible.builtin.debug:
+    var: kvm_host_ok_result.stdout_lines

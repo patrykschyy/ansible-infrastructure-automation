@@ -1,0 +1,32 @@
+---
+- name: Deploy user dotfiles
+  hosts: linux
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ensure vim undo directory exists
+      ansible.builtin.file:
+        path: "{{ dotfiles_home }}/.vim/undo"
+        state: directory
+        owner: "{{ dotfiles_user }}"
+        group: "{{ dotfiles_user }}"
+        mode: "0755"
+
+    - name: Deploy .vimrc
+      ansible.builtin.template:
+        src: "{{ playbook_dir | dirname }}/templates/vimrc.j2"
+        dest: "{{ dotfiles_home }}/.vimrc"
+        owner: "{{ dotfiles_user }}"
+        group: "{{ dotfiles_user }}"
+        mode: "0644"
+        backup: true
+
+    - name: Deploy .zshrc
+      ansible.builtin.template:
+        src: "{{ playbook_dir | dirname }}/templates/zshrc.j2"
+        dest: "{{ dotfiles_home }}/.zshrc"
+        owner: "{{ dotfiles_user }}"
+        group: "{{ dotfiles_user }}"
+        mode: "0644"
+        backup: true

@@ -1,0 +1,106 @@
+" ==========================
+" BASIC SETTINGS
+" ==========================
+
+set nocompatible
+syntax on
+filetype plugin indent on
+set encoding=utf-8
+
+" ==========================
+" UI / APPEARANCE
+" ==========================
+
+set number
+set cursorline
+set showmatch
+set ruler
+set laststatus=2
+set showcmd
+set wildmenu
+set scrolloff=5
+set sidescrolloff=5
+
+if has("termguicolors")
+  set termguicolors
+endif
+
+" Better searching
+set hlsearch
+set incsearch
+set ignorecase
+set smartcase
+
+" ==========================
+" INDENTATION
+" ==========================
+
+set autoindent
+set smartindent
+set expandtab
+set tabstop=4
+set shiftwidth=4
+set softtabstop=4
+
+" YAML / Kubernetes / Ansible
+autocmd FileType yaml,yml setlocal tabstop=2 shiftwidth=2 softtabstop=2
+
+" ==========================
+" FILE HANDLING
+" ==========================
+
+set nobackup
+set nowritebackup
+set noswapfile
+set undofile
+set undodir=~/.vim/undo
+
+set autoread
+set hidden
+
+" ==========================
+" QUALITY OF LIFE
+" ==========================
+
+set clipboard=unnamedplus
+set mouse=a
+set splitbelow
+set splitright
+
+" Remove trailing spaces on save
+autocmd BufWritePre * %s/\s\+$//e
+
+" Highlight trailing spaces
+highlight ExtraWhitespace ctermbg=red guibg=red
+match ExtraWhitespace /\s\+$/
+
+" ==========================
+" KEYMAPS
+" ==========================
+
+" Fast save
+nnoremap <C-s> :w<CR>
+
+" Quit
+nnoremap <C-q> :q<CR>
+
+" Reload vim config
+nnoremap <leader>r :source ~/.vimrc<CR>
+
+" Open vim config
+nnoremap <leader>v :e ~/.vimrc<CR>
+
+" Better window navigation
+nnoremap <C-h> <C-w>h
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+nnoremap <C-l> <C-w>l
+
+" Clear search highlight
+nnoremap <Esc> :noh<CR>
+
+" ==========================
+" COLORS
+" ==========================
+
+colorscheme desert

@@ -1,0 +1,7 @@
+---
+- name: Create Kubernetes VMs on KVM/QEMU
+  hosts: kvm_hosts
+  become: true
+
+  roles:
+    - kvm_vms

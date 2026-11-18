@@ -1,0 +1,56 @@
+---
+- name: Configure UFW firewall
+  hosts: linux
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Install UFW
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+        update_cache: true
+
+    - name: Set default incoming policy to deny
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+
+    - name: Set default outgoing policy to allow
+      community.general.ufw:
+        direction: outgoing
+        policy: allow
+
+    - name: Allow public HTTP/HTTPS ports
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: "{{ ufw_allow_public_ports }}"
+
+    - name: Allow public SSH temporarily
+      community.general.ufw:
+        rule: allow
+        port: "{{ ufw_ssh_port }}"
+        proto: tcp
+      when: ufw_allow_ssh_public | bool
+
+    - name: Deny public application ports
+      community.general.ufw:
+        rule: deny
+        port: "{{ item }}"
+        proto: tcp
+      loop: "{{ ufw_deny_public_ports }}"
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    - name: Show UFW status
+      ansible.builtin.command: ufw status verbose
+      register: ufw_status
+      changed_when: false
+
+    - name: Print UFW status
+      ansible.builtin.debug:
+        var: ufw_status.stdout_lines
