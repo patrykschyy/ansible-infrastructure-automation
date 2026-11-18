@@ -1,83 +1,69 @@
 # Ansible Infrastructure Automation
 
-An infrastructure automation project based on **Ansible** for Linux system administration, container services, networking, basic security controls, and a small virtualization lab.
+A collection of Ansible playbooks and roles I built to automate recurring Linux administration tasks, service deployments and infrastructure setup.
 
-Originally created as a hands-on administration project. This public version has been **sanitized for portfolio review**: host addresses, domains, accounts, home-directory paths, and the personal SSH public key have been replaced with demonstration values. The original environment is not included.
+The project grew out of my own environments: Linux services hosted on a VPS and a local lab for virtualization and K3s. I used Ansible to make configuration and maintenance tasks repeatable instead of performing them manually on each system.
 
-## Scope
+## What's included
 
-| Area | What the repository contains |
+| Area | Examples |
 | --- | --- |
-| Linux administration | Package installation, updates, time zone, system information and MOTD |
-| Docker | Docker installation, daemon log configuration, n8n via Docker Compose |
-| Network & security | Tailscale installation, UFW firewall configuration, SSH hardening, system security checks |
-| Reverse proxy | Nginx configuration templates for n8n webhooks and TLS termination |
-| Virtualization | KVM/QEMU/libvirt host, storage pools, VM provisioning with cloud-init |
-| Kubernetes lab | K3s master and worker installation, kernel and network configuration |
-| Developer environment | Shell/Zsh and Vim dotfiles |
+| Linux administration | Updates, package installation, timezone, system information and MOTD |
+| Docker | Installation, logging configuration and n8n deployment with Docker Compose |
+| Networking and security | Tailscale, UFW, SSH configuration and basic security checks |
+| Web services | Nginx reverse proxy and TLS configuration for n8n |
+| Virtualization | KVM/QEMU, libvirt storage pools and VM provisioning with cloud-init |
+| Kubernetes lab | K3s server and worker installation and basic node configuration |
+| Shell setup | Zsh, Oh My Zsh and Vim configuration |
 
-## Repository structure
+## Repository layout
 
 ```text
-.
-├── ansible.cfg
-├── inventories/dev/
-│   ├── hosts.yml                 # Example inventory (not real infrastructure)
-│   └── group_vars/
-│       ├── kvm_hosts.yml        # VM host settings
-│       └── linux.yml            # Linux group variables
-├── playbooks/                   # Administration and deployment playbooks
-├── roles/                       # KVM and K3s roles
-├── templates/                   # Jinja2 / Docker Compose / Nginx templates
-├── files/                       # MOTD and placeholder SSH public key
-└── requirements.yml             # Required Ansible collections
+ansible.cfg              Ansible settings
+inventories/dev/         Example inventory and group variables
+playbooks/               Administration and deployment playbooks
+roles/                   KVM and K3s roles
+templates/               Jinja2 configuration templates
+files/                   Static files and example SSH public key
+requirements.yml         Required Ansible collections
 ```
 
-## Prerequisites and safety
+## Getting started
 
-> **Example inventory only.** This repository is intended to be reviewed and adapted, not executed against unknown machines without an environment-specific test. It contains real administration automation, including potentially disruptive changes.
-
-1. Install Ansible in your environment and the required collections:
-
-   ```bash
-   ansible-galaxy collection install -r requirements.yml
-   ```
-
-2. Configure `inventories/dev/hosts.yml` with your own reachable hosts and SSH accounts. Configure `inventories/dev/group_vars/linux.yml` and `inventories/dev/group_vars/kvm_hosts.yml` for your own infrastructure.
-
-3. Before provisioning VMs, replace `files/ssh/id_ed25519.pub` with **your own public SSH key**. The repository only includes a non-functional placeholder. Before deploying n8n, provide a real `.env` on the target host (mode `0600`), using `templates/n8n.env.j2` as an example; use a strong encryption key and a tested, pinned n8n version. The deployment refuses a missing `.env` or a placeholder/`latest` version.
-
-4. Example commands:
-
-   ```bash
-   ansible-inventory --graph
-   ansible linux -m ping
-   ansible-playbook playbooks/server-info.yml
-   ansible-playbook playbooks/install-basic-tools.yml --ask-become-pass
-   ```
-
-## Security and scope notes
-
-- No actual SSH private keys, cloud tokens, live `.env` files, or real system credentials are intentionally included.
-- `n8n.example.com` is an example domain; the public IPs in the sample inventory are documentation-only values. The example Tailscale address must also be replaced.
-- `templates/n8n.env.j2` contains placeholders only. Supply a strong encryption key and other credentials through your own secure configuration before using it.
-- The n8n Compose example uses the standard secure-cookie behavior; accessing its editor should use HTTPS. Public reverse-proxy routes must be reviewed for each deployment.
-- The SSH firewall playbook can **lock you out** if misconfigured. It requires an explicit `-e confirm_tailscale_ssh_restriction=true` after verifying working Tailscale access and out-of-band recovery. That flag is a safety check, **not a guarantee** against lockout.
-- KVM and K3s components document a virtualization and Kubernetes lab. The K3s installer is obtained from an external endpoint without a pinned checksum/version and is **not production-hardened**. Adapting these roles for production requires environment-specific versioning, hardening and recovery planning.
-- The public version uses example inventory values; it has not been redeployed against live targets following sanitization. Validate changes on isolated hosts before production use.
-
-## Validation before use
-
-Run the following from the repository root on a control node with Ansible and the collections installed:
+Install the required collections:
 
 ```bash
-ansible-inventory -i inventories/dev/hosts.yml --list
-for playbook in playbooks/*.yml; do ansible-playbook --syntax-check "$playbook" || exit 1; done
-ansible-lint --project-dir . playbooks/ roles/
+ansible-galaxy collection install -r requirements.yml
 ```
 
-These commands are suggested checks, not claims that they have been run successfully. `--syntax-check` does **not** validate runtime safety or idempotency. Use an isolated test VM and `--check --diff` when supported before deploying changes to any real host.
+Update `inventories/dev/hosts.yml` and the files under `inventories/dev/group_vars/` with settings for your own environment. The published inventory contains example values, not reachable hosts.
 
-## Main tools
+To inspect the inventory and run a simple playbook:
 
-Ansible · Linux (Debian/Ubuntu) · Docker / Docker Compose · Tailscale · UFW · Nginx · SSH · KVM/QEMU · cloud-init · K3s · Jinja2
+```bash
+ansible-inventory -i inventories/dev/hosts.yml --graph
+ansible-playbook -i inventories/dev/hosts.yml playbooks/server-info.yml
+```
+
+## Validation
+
+The original playbooks were used and tested in my VPS and local lab environments. For this public version, I replaced infrastructure-specific values and made code-quality fixes.
+
+The published code has passed these local checks:
+
+- Inventory parsing with `ansible-inventory`
+- Syntax checks for all 22 playbooks
+- `ansible-lint`: 0 violations, `production` profile
+
+The updated public version has not been redeployed end-to-end. Syntax and lint checks do not replace testing against a target system.
+
+## Before running the playbooks
+
+- Replace example hosts, domains, user accounts and SSH public key values with your own configuration.
+- Supply n8n credentials and its encryption key outside Git. Review the Docker Compose and reverse-proxy configuration for your environment.
+- Be careful with SSH and firewall playbooks: incorrect settings can lock you out of a server. In particular, `secure-ssh-tailscale-only.yml` requires explicit confirmation and a verified recovery path.
+- The KVM and K3s roles reflect lab work; adapt and test their versions, security settings and recovery procedures before production use.
+
+## Technologies
+
+Ansible · Debian/Ubuntu · Docker / Docker Compose · Nginx · Tailscale · UFW · SSH · KVM/QEMU · libvirt · cloud-init · K3s · Jinja2
